@@ -1,0 +1,2351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResumeLocal — Privacy-First Resume Match Analyzer</title>
+  <meta name="description" content="Local browser-based resume-to-job-description match analyzer for college placements. Zero server uploads.">
+  <style>
+    /* CSS RESET & DESIGN SYSTEM (Linear/Notion-inspired restraint) */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-page: #F7F8FA;
+      --bg-card: #FFFFFF;
+      --bg-subtle: #F1F5F9;
+      --border-color: #E2E8F0;
+      --border-focus: #4F46E5;
+      
+      --text-main: #0F172A;
+      --text-muted: #475569;
+      --text-subtle: #64748B;
+      
+      --accent: #4F46E5;
+      --accent-hover: #4338CA;
+      --accent-active: #3730A3;
+      --accent-subtle: #EEF2FF;
+      --accent-border: #C7D2FE;
+      
+      --matched-bg: #ECFDF5;
+      --matched-border: #A7F3D0;
+      --matched-text: #065F46;
+      --matched-dot: #10B981;
+      
+      --missing-bg: #FFFBEB;
+      --missing-border: #FDE68A;
+      --missing-text: #92400E;
+      --missing-dot: #D97706;
+      
+      --danger-bg: #FEF2F2;
+      --danger-border: #FECACA;
+      --danger-text: #991B1B;
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-card: 16px;
+      --radius-pill: 9999px;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+      --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+      --shadow-hover: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+      
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      font-family: var(--font-stack);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ACCESSIBILITY & MOTION PREFERENCES */
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* TOP BAR */
+    .topbar {
+      background: rgba(247, 248, 250, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .logo-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+
+    .badge-prototype {
+      background-color: var(--bg-subtle);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+    }
+
+    .badge-local {
+      background-color: var(--matched-bg);
+      color: var(--matched-text);
+      border: 1px solid var(--matched-border);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .indicator-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--matched-dot);
+    }
+
+    /* MAIN CONTAINER */
+    .main-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 36px 24px 64px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* HERO SECTION */
+    .hero {
+      text-align: center;
+      max-width: 780px;
+      margin: 0 auto 36px;
+    }
+
+    .hero-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-main);
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+
+    .hero-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
+
+    .privacy-notice {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-pill);
+      padding: 6px 16px;
+      font-size: 13px;
+      color: var(--text-subtle);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .privacy-notice svg {
+      width: 15px;
+      height: 15px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* INPUT GRID */
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+
+    .card-title-group h2 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: var(--text-subtle);
+    }
+
+    .char-count {
+      font-size: 12px;
+      color: var(--text-subtle);
+      font-feature-settings: "tnum";
+      white-space: nowrap;
+    }
+
+    .textarea-wrapper {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    textarea.input-field {
+      width: 100%;
+      min-height: 230px;
+      padding: 14px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-main);
+      background-color: #FAFAFC;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      resize: vertical;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    }
+
+    textarea.input-field:focus {
+      outline: none;
+      background-color: #FFFFFF;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
+    }
+
+    textarea.input-field::placeholder {
+      color: #94A3B8;
+      font-size: 13.5px;
+    }
+
+    /* INLINE ERROR MESSAGES */
+    .input-error-msg {
+      display: none;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background-color: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      border-radius: var(--radius-sm);
+      color: var(--danger-text);
+      font-size: 13px;
+      font-weight: 500;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .input-error-msg.visible {
+      display: flex;
+    }
+
+    .input-error-msg svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    /* PDF UPLOAD CONTROL */
+    .pdf-upload-container {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .pdf-dropzone {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background-color: #F8FAFC;
+      border: 1px dashed #CBD5E1;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .pdf-dropzone:hover, .pdf-dropzone.dragover {
+      background-color: #F1F5F9;
+      border-color: var(--accent);
+    }
+
+    .pdf-dropzone-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .pdf-dropzone-info svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .pdf-text-main {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pdf-text-hint {
+      font-size: 11.5px;
+      color: var(--text-subtle);
+    }
+
+    .btn-browse {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* PDF STATUS AND ALERTS */
+    .pdf-status-alert {
+      display: none;
+      margin-top: 8px;
+      font-size: 12.5px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pdf-status-alert.visible {
+      display: flex;
+    }
+
+    .pdf-status-alert.loading {
+      background-color: var(--accent-subtle);
+      border: 1px solid var(--accent-border);
+      color: var(--accent-hover);
+    }
+
+    .pdf-status-alert.success {
+      background-color: var(--matched-bg);
+      border: 1px solid var(--matched-border);
+      color: var(--matched-text);
+    }
+
+    .pdf-status-alert.error {
+      background-color: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ACTION CONTROLS BAR */
+    .actions-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .actions-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background-color: var(--accent);
+      color: #FFFFFF;
+      box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.2);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+      box-shadow: 0 2px 4px 0 rgba(79, 70, 229, 0.25);
+    }
+
+    .btn-primary:active {
+      background-color: var(--accent-active);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-card);
+      color: var(--text-main);
+      border-color: var(--border-color);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-secondary:hover {
+      background-color: #F8FAFC;
+      border-color: #CBD5E1;
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: var(--text-subtle);
+      border-color: transparent;
+    }
+
+    .btn-ghost:hover {
+      background-color: #E2E8F0;
+      color: var(--text-main);
+    }
+
+    .btn svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    /* OUTDATED RESULTS NOTICE */
+    .outdated-banner {
+      display: none;
+      background-color: var(--missing-bg);
+      border: 1px solid var(--missing-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 13.5px;
+      color: var(--missing-text);
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .outdated-banner.visible {
+      display: flex;
+    }
+
+    .outdated-banner svg {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+    }
+
+    /* RESULTS CONTAINER */
+    .results-wrapper {
+      margin-top: 8px;
+    }
+
+    /* EMPTY STATE */
+    .empty-state-card {
+      background: var(--bg-card);
+      border: 1px dashed var(--border-color);
+      border-radius: var(--radius-card);
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--text-subtle);
+    }
+
+    .empty-state-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      color: #94A3B8;
+    }
+
+    .empty-state-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .empty-state-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* ACTIVE RESULTS VIEW */
+    .results-section {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .results-section.visible {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* TOP SCORE CARD */
+    .score-summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 28px;
+      display: flex;
+      align-items: center;
+      gap: 36px;
+      flex-wrap: wrap;
+    }
+
+    .gauge-wrapper {
+      position: relative;
+      width: 132px;
+      height: 132px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      stroke: #EEF2F6;
+      stroke-width: 10;
+      fill: none;
+    }
+
+    .gauge-progress {
+      stroke: var(--accent);
+      stroke-width: 10;
+      stroke-linecap: round;
+      fill: none;
+      stroke-dasharray: 301.59;
+      stroke-dashoffset: 301.59;
+      transition: stroke-dashoffset 0.85s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    .gauge-text-container {
+      position: absolute;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gauge-number {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+      font-feature-settings: "tnum";
+      line-height: 1;
+    }
+
+    .gauge-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-subtle);
+      margin-top: 4px;
+    }
+
+    .score-details {
+      flex: 1;
+      min-width: 260px;
+    }
+
+    .score-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .score-type-badge {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background-color: var(--accent-subtle);
+      color: var(--accent);
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+    }
+
+    .score-headline {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    .score-subtitle {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .formula-box {
+      background-color: #F8FAFC;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .formula-expression {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .formula-note {
+      font-size: 12px;
+      color: var(--text-subtle);
+    }
+
+    /* CARDS BREAKDOWN GRID */
+    .breakdown-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.2;
+      transition: transform 0.1s ease;
+    }
+
+    .chip:hover {
+      transform: translateY(-1px);
+    }
+
+    .chip-matched {
+      background-color: var(--matched-bg);
+      border: 1px solid var(--matched-border);
+      color: var(--matched-text);
+    }
+
+    .chip-missing {
+      background-color: var(--missing-bg);
+      border: 1px solid var(--missing-border);
+      color: var(--missing-text);
+    }
+
+    .chip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .chip-matched .chip-dot {
+      background-color: var(--matched-dot);
+    }
+
+    .chip-missing .chip-dot {
+      background-color: var(--missing-dot);
+    }
+
+    .chip-weight {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-left: 2px;
+    }
+
+    .empty-chips-note {
+      font-size: 13.5px;
+      color: var(--text-subtle);
+      font-style: italic;
+      padding: 8px 0;
+    }
+
+    /* PRIORITIZED IMPROVEMENTS */
+    .recommendations-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 24px;
+    }
+
+    .recommendations-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .recommendation-item {
+      background-color: #F8FAFC;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .rec-icon {
+      width: 18px;
+      height: 18px;
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .rec-content {
+      flex: 1;
+    }
+
+    .rec-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 3px;
+    }
+
+    .rec-text {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .placement-disclaimer-box {
+      margin-top: 16px;
+      background-color: #F1F5F9;
+      border-left: 3px solid #94A3B8;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* COLLAPSIBLE HOW THIS SCORE WORKS */
+    .details-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    details.how-it-works-details {
+      width: 100%;
+    }
+
+    summary.how-it-works-summary {
+      padding: 18px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      list-style: none;
+    }
+
+    summary.how-it-works-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .summary-chevron {
+      width: 18px;
+      height: 18px;
+      color: var(--text-subtle);
+      transition: transform 0.2s ease;
+    }
+
+    details[open] .summary-chevron {
+      transform: rotate(180deg);
+    }
+
+    .how-it-works-body {
+      padding: 0 24px 24px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .table-container {
+      overflow-x: auto;
+      margin-top: 14px;
+    }
+
+    table.transparency-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    table.transparency-table th {
+      background-color: #F8FAFC;
+      color: var(--text-subtle);
+      font-weight: 600;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    table.transparency-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+
+    table.transparency-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .table-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .table-status-pill.matched {
+      background-color: var(--matched-bg);
+      color: var(--matched-text);
+      border: 1px solid var(--matched-border);
+    }
+
+    .table-status-pill.missing {
+      background-color: var(--missing-bg);
+      color: var(--missing-text);
+      border: 1px solid var(--missing-border);
+    }
+
+    .explanation-points {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .explanation-points strong {
+      color: var(--text-main);
+    }
+
+    /* FOOTER */
+    .app-footer {
+      border-top: 1px solid var(--border-color);
+      background-color: var(--bg-card);
+      padding: 24px 24px;
+      margin-top: auto;
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-subtle);
+      line-height: 1.5;
+    }
+
+    .footer-privacy-text {
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    /* RESPONSIVE DESIGN (Reflow cleanly at 390px and 1366px) */
+    @media (max-width: 820px) {
+      .input-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .breakdown-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .score-summary-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+      }
+      .gauge-wrapper {
+        margin: 0 auto;
+      }
+      .hero-title {
+        font-size: 26px;
+      }
+      .topbar-container {
+        padding: 10px 16px;
+      }
+      .main-content {
+        padding: 24px 16px 48px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .brand-group {
+        gap: 8px;
+      }
+      .badge-prototype {
+        display: none; /* Keep top bar clean on small 390px screens */
+      }
+      .actions-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .actions-left {
+        flex-direction: column;
+        width: 100%;
+      }
+      .actions-left .btn, .btn-ghost {
+        width: 100%;
+      }
+      .pdf-dropzone {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .btn-browse {
+        align-self: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <header class="topbar" role="banner">
+    <div class="topbar-container">
+      <div class="brand-group">
+        <a href="#" class="logo-wrapper" aria-label="ResumeLocal Home">
+          <svg class="logo-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="28" height="28" rx="8" fill="#4F46E5" fill-opacity="0.1"/>
+            <path d="M9 7C7.89543 7 7 7.89543 7 9V19C7 20.1046 7.89543 21 9 21H19C20.1046 21 21 20.1046 21 19V11.5L16.5 7H9Z" stroke="#4F46E5" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M16 7V12H21" stroke="#4F46E5" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M10.5 15H17.5" stroke="#4F46E5" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M10.5 17.5H15" stroke="#4F46E5" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="brand-title">ResumeLocal</span>
+        </a>
+        <span class="badge-prototype">College project prototype</span>
+      </div>
+      <div class="badge-local" title="Analysis executes strictly inside your browser">
+        <span class="indicator-dot" aria-hidden="true"></span>
+        <span>Local analysis</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="main-content" id="mainContent">
+
+    <!-- HERO SECTION -->
+    <section class="hero" aria-labelledby="heroTitle">
+      <h1 id="heroTitle" class="hero-title">Check your job match. Keep your resume private.</h1>
+      <p class="hero-subtitle">A browser-based resume analyzer for placement preparation. No account. No resume upload to a server.</p>
+      <div class="privacy-notice">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+        </svg>
+        <span>Zero server storage: your text stays in your browser tab memory.</span>
+      </div>
+    </section>
+
+    <!-- INPUT GRID -->
+    <section class="input-grid" aria-label="Resume and Job Description Inputs">
+
+      <!-- CARD 1: RESUME INPUT -->
+      <article class="card" id="resumeCard">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 id="resumeLabel">Your resume</h2>
+            <p class="card-subtitle">Paste text or extract from a text-based PDF</p>
+          </div>
+          <span class="char-count" id="resumeCount" aria-live="polite">0 words · 0 characters</span>
+        </div>
+
+        <div class="textarea-wrapper">
+          <textarea 
+            id="resumeInput" 
+            class="input-field" 
+            aria-labelledby="resumeLabel"
+            placeholder="Paste your complete resume text here (education, technical skills, academic projects, tools, certifications)..."
+            spellcheck="false"
+          ></textarea>
+
+          <div class="input-error-msg" id="resumeError" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <span id="resumeErrorText">Please provide resume text to analyze.</span>
+          </div>
+        </div>
+
+        <!-- ACCESSIBLE PDF UPLOAD CONTROL -->
+        <div class="pdf-upload-container">
+          <input 
+            type="file" 
+            id="pdfFileInput" 
+            accept="application/pdf,.pdf" 
+            class="visually-hidden" 
+            aria-label="Upload resume PDF (up to 5 MB)"
+          >
+          
+          <label for="pdfFileInput" class="pdf-dropzone" id="pdfDropzone" role="button" tabindex="0">
+            <div class="pdf-dropzone-info">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="12" y2="12"></line>
+                <line x1="15" y1="15" x2="12" y2="12"></line>
+              </svg>
+              <div>
+                <div class="pdf-text-main" id="pdfDropzoneTitle">Upload text-based PDF (Max 5 MB)</div>
+                <div class="pdf-text-hint">Parsed locally in browser via PDF.js CDN</div>
+              </div>
+            </div>
+            <span class="btn-browse" aria-hidden="true">Choose PDF</span>
+          </label>
+
+          <!-- PDF Status Feedback -->
+          <div class="pdf-status-alert loading" id="pdfLoadingStatus" role="status">
+            <div class="spinner" aria-hidden="true"></div>
+            <span id="pdfLoadingText">Extracting text using PDF.js...</span>
+          </div>
+
+          <div class="pdf-status-alert success" id="pdfSuccessStatus" role="status">
+            <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span id="pdfSuccessText">Extracted resume text successfully.</span>
+          </div>
+
+          <div class="pdf-status-alert error" id="pdfErrorStatus" role="alert">
+            <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <span id="pdfErrorText">Could not extract text. Paste your resume instead.</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- CARD 2: JOB DESCRIPTION INPUT -->
+      <article class="card" id="jobCard">
+        <div class="card-header">
+          <div class="card-title-group">
+            <h2 id="jobLabel">Job description</h2>
+            <p class="card-subtitle">Placement notice or target role requirements</p>
+          </div>
+          <span class="char-count" id="jobCount" aria-live="polite">0 words · 0 characters</span>
+        </div>
+
+        <div class="textarea-wrapper">
+          <textarea 
+            id="jobInput" 
+            class="input-field" 
+            aria-labelledby="jobLabel"
+            placeholder="Paste the placement drive description or job posting here (required technical stack, qualifications, job responsibilities, tools)..."
+            spellcheck="false"
+          ></textarea>
+
+          <div class="input-error-msg" id="jobError" role="alert">
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <span id="jobErrorText">Please provide a job description to analyze.</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- ACTION BUTTONS BAR -->
+    <div class="actions-bar">
+      <div class="actions-left">
+        <button type="button" class="btn btn-primary" id="btnAnalyze">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
+          </svg>
+          <span>Analyze match</span>
+        </button>
+
+        <button type="button" class="btn btn-secondary" id="btnLoadDemo" title="Populate fields with fictional Indian placement sample">
+          <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+          </svg>
+          <span>Load demo data</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-ghost" id="btnClearAll" title="Clear both inputs and analysis">
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span>Clear all</span>
+      </button>
+    </div>
+
+    <!-- OUTDATED RESULTS NOTIFICATION -->
+    <div class="outdated-banner" id="outdatedBanner" role="status">
+      <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <span>Inputs have changed since last analysis. Click <strong>Analyze match</strong> to update results.</span>
+    </div>
+
+    <!-- RESULTS SECTION -->
+    <div class="results-wrapper">
+
+      <!-- EMPTY STATE CARD -->
+      <section class="empty-state-card" id="emptyResultsState" aria-label="Analysis Status">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <h3 class="empty-state-title">Ready for analysis</h3>
+        <p class="empty-state-desc">Paste your resume and job description above, or click <strong>Load demo data</strong> to view a sample campus placement scenario. Then click <strong>Analyze match</strong> to generate your private breakdown.</p>
+      </section>
+
+      <!-- ACTIVE RESULTS VIEW -->
+      <section class="results-section" id="activeResultsSection" aria-label="Match Analysis Results">
+        
+        <!-- SCORE & SUMMARY CARD -->
+        <article class="score-summary-card">
+          <div class="gauge-wrapper">
+            <svg class="gauge-svg" viewBox="0 0 120 120" role="progressbar" id="scoreGaugeProgressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Keyword match score">
+              <circle class="gauge-bg" cx="60" cy="60" r="48"></circle>
+              <circle class="gauge-progress" id="scoreGaugeCircle" cx="60" cy="60" r="48"></circle>
+            </svg>
+            <div class="gauge-text-container">
+              <div class="gauge-number" id="gaugeScoreNumber">0%</div>
+              <div class="gauge-label">Match</div>
+            </div>
+          </div>
+
+          <div class="score-details">
+            <div class="score-badge-row">
+              <span class="score-type-badge">Keyword match</span>
+              <span class="char-count" id="matchSummaryCount">0 of 0 target keywords found</span>
+            </div>
+            <h3 class="score-headline" id="scoreHeadlineText">Keyword coverage analysis</h3>
+            <p class="score-subtitle" id="scoreSubtitleText">Determined via deterministic boundary-aware keyword matching.</p>
+            
+            <div class="formula-box">
+              <div class="formula-expression" id="formulaExpression">Score = round(100 × matched weight / total JD weight)</div>
+              <div class="formula-note" id="formulaNote">Canonical dictionary skills carry weight 2; general extracted job keywords carry weight 1.</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- BREAKDOWN CARDS (MATCHED & MISSING) -->
+        <div class="breakdown-grid">
+          
+          <!-- MATCHED KEYWORDS CARD -->
+          <article class="card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <h3 id="matchedHeading">Matched keywords</h3>
+                <p class="card-subtitle">Skills found in both the job description and your resume</p>
+              </div>
+            </div>
+            <div class="chips-container" id="matchedChipsContainer" role="list">
+              <!-- Rendered dynamically -->
+            </div>
+          </article>
+
+          <!-- MISSING KEYWORDS CARD -->
+          <article class="card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <h3 id="missingHeading">Missing keywords</h3>
+                <p class="card-subtitle">Required skills from the posting not identified in your resume</p>
+              </div>
+            </div>
+            <div class="chips-container" id="missingChipsContainer" role="list">
+              <!-- Rendered dynamically -->
+            </div>
+          </article>
+
+        </div>
+
+        <!-- PRIORITIZED IMPROVEMENTS CARD -->
+        <article class="recommendations-card">
+          <div class="card-title-group">
+            <h3>Prioritized gap improvements</h3>
+            <p class="card-subtitle">Specific, actionable recommendations based on detected skill gaps</p>
+          </div>
+          
+          <div class="recommendations-list" id="recommendationsList" role="list">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <div class="placement-disclaimer-box">
+            <strong>Placement preparation guideline:</strong> Never fabricate skills. If you possess experience with a missing keyword (through college coursework, labs, or personal projects), add clear evidence. If not, consider learning the basics before your interview.
+          </div>
+        </article>
+
+        <!-- COLLAPSIBLE "HOW THIS SCORE WORKS" SECTION -->
+        <article class="details-card">
+          <details class="how-it-works-details" id="howItWorksDetails">
+            <summary class="how-it-works-summary">
+              <span>How this score works (Transparency &amp; Formula Breakdown)</span>
+              <svg class="summary-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+            </summary>
+            
+            <div class="how-it-works-body">
+              <div class="table-container">
+                <table class="transparency-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Job Keyword / Skill</th>
+                      <th scope="col">Category</th>
+                      <th scope="col">Weight</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Evaluation Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="transparencyTableBody">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="explanation-points">
+                <p><strong>Boundary-Aware Matching:</strong> RegEx boundaries prevent false positives (e.g., "Java" will not match "JavaScript", and "C" will not match arbitrary words containing the letter C).</p>
+                <p><strong>Special Tokens:</strong> Symbols in programming terms such as C++, C#, .NET, and Node.js are preserved with punctuation-safe delimiters.</p>
+                <p><strong>Alias Deduplication:</strong> Standard industry aliases (e.g., JS &rarr; JavaScript, React.js &rarr; React, Postgres &rarr; PostgreSQL) are mapped to canonical forms so they count exactly once.</p>
+                <p><strong>No Artificial Inflation:</strong> Repetition of a keyword in either document does not increase its weight or score.</p>
+                <p><strong>Explicit Limitations:</strong> Negation (e.g., "no Python required"), depth of experience (e.g., "5 years of Java" vs "introductory Java"), and contextual semantics beyond explicit aliases are not reliably understood.</p>
+                <p><strong>Prototype Disclaimer:</strong> This is a keyword-based college project prototype, not an official ATS evaluation or a guarantee of selection.</p>
+              </div>
+            </div>
+          </details>
+        </article>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="app-footer" role="contentinfo">
+    <div class="footer-container">
+      <p class="footer-privacy-text">Analysis runs in your browser. PDF upload loads a third-party parsing library; your resume is not sent for analysis.</p>
+      <p>ResumeLocal — College project prototype for campus placement preparation. Built with deterministic, local JavaScript.</p>
+    </div>
+  </footer>
+
+  <!-- ACCESSIBILITY LIVE ANNOUNCEMENTS -->
+  <div id="liveAnnouncement" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- APPLICATION JAVASCRIPT -->
+  <script>
+    /**
+     * ResumeLocal - Privacy-First Resume Match Analyzer
+     * Deterministic, client-side matching engine for placement preparation.
+     */
+
+    // 1. CANONICAL SKILLS DICTIONARY
+    // Contains programming languages, frameworks, databases, tools, and workplace skills.
+    // Each skill has boundary-aware regex patterns, canonical name, category, and placement suggestion.
+    const CANONICAL_SKILLS = [
+      {
+        id: "java",
+        name: "Java",
+        category: "Programming Language",
+        patterns: [/\bjava\b/i],
+        suggestion: "If you have Java experience, specify core concepts (OOP, Collections, Multithreading, JDBC) used in your academic projects."
+      },
+      {
+        id: "javascript",
+        name: "JavaScript",
+        category: "Programming Language",
+        patterns: [/\bjavascript\b/i, /\bjs\b/i],
+        suggestion: "If you know JavaScript, highlight proficiency with modern ES6+ syntax, asynchronous promises, or DOM manipulation."
+      },
+      {
+        id: "typescript",
+        name: "TypeScript",
+        category: "Programming Language",
+        patterns: [/\btypescript\b/i, /\bts\b/i],
+        suggestion: "If you have worked with TypeScript, highlight project interfaces, type safety, and clean API models."
+      },
+      {
+        id: "python",
+        name: "Python",
+        category: "Programming Language",
+        patterns: [/\bpython\b/i, /\bpython3\b/i],
+        suggestion: "If you have Python skills, mention scripts, data processing, automation, or web backend modules you developed."
+      },
+      {
+        id: "cpp",
+        name: "C++",
+        category: "Programming Language",
+        patterns: [/(?:^|[\s,;:.!?()[\]{}|/])C\+\+(?=[\s,;:.!?()[\]{}|/]|$)/i],
+        suggestion: "If you studied C++, describe your use of STL containers, object-oriented concepts, or memory management."
+      },
+      {
+        id: "csharp",
+        name: "C#",
+        category: "Programming Language",
+        patterns: [/(?:^|[\s,;:.!?()[\]{}|/])C#(?=[\s,;:.!?()[\]{}|/]|$)/i, /\bc-sharp\b/i],
+        suggestion: "If you have C# experience, mention object-oriented applications, desktop forms, or backend services."
+      },
+      {
+        id: "c",
+        name: "C Language",
+        category: "Programming Language",
+        patterns: [/\bC\s+programming\b/i, /\bC\s+language\b/i, /(?:^|[\s,;:.!?()[\]{}|/])C\/(?:C\+\+|C#)(?=[\s,;:.!?()[\]{}|/]|$)/i],
+        suggestion: "If you have C foundation, mention data structures, pointer arithmetic, and algorithmic problem-solving."
+      },
+      {
+        id: "sql",
+        name: "SQL",
+        category: "Databases & Query",
+        patterns: [/\bsql\b/i, /\bstructured\s+query\s+language\b/i],
+        suggestion: "If you have SQL experience, describe relational schemas, joins, queries, and constraints you implemented."
+      },
+      {
+        id: "html",
+        name: "HTML",
+        category: "Web & Markup",
+        patterns: [/\bhtml5?\b/i],
+        suggestion: "Detail semantic HTML5 layout structures, web forms, and responsive design in your projects."
+      },
+      {
+        id: "css",
+        name: "CSS",
+        category: "Web & Styling",
+        patterns: [/\bcss3?\b/i],
+        suggestion: "Highlight responsive styling using Flexbox, CSS Grid, media queries, or modern stylesheets."
+      },
+      {
+        id: "react",
+        name: "React",
+        category: "Frameworks & Libraries",
+        patterns: [/\breact(?:\.js|js)?\b/i],
+        suggestion: "If you know React, specify components, hooks (useState, useEffect), and state management in your projects."
+      },
+      {
+        id: "nodejs",
+        name: "Node.js",
+        category: "Backend & Runtime",
+        patterns: [/(?:^|[\s,;:.!?()[\]{}|/])Node\.js(?=[\s,;:.!?()[\]{}|/]|$)/i, /\bnodejs\b/i, /\bnode\s+js\b/i],
+        suggestion: "If you have Node.js experience, detail asynchronous backend endpoints, modules, and npm dependencies."
+      },
+      {
+        id: "angular",
+        name: "Angular",
+        category: "Frameworks & Libraries",
+        patterns: [/\bangular(?:\.js|js)?\b/i],
+        suggestion: "If you used Angular, mention TypeScript components, services, and single-page routing."
+      },
+      {
+        id: "vue",
+        name: "Vue.js",
+        category: "Frameworks & Libraries",
+        patterns: [/\bvue(?:\.js|js)?\b/i],
+        suggestion: "If you worked with Vue, mention single-file components and template directives."
+      },
+      {
+        id: "spring_boot",
+        name: "Spring Boot",
+        category: "Frameworks & Libraries",
+        patterns: [/\bspring\s*boot\b/i, /\bspring\s+framework\b/i],
+        suggestion: "If you have Spring Boot knowledge, mention dependency injection, REST controllers, and JPA repositories."
+      },
+      {
+        id: "django",
+        name: "Django",
+        category: "Frameworks & Libraries",
+        patterns: [/\bdjango\b/i],
+        suggestion: "If you know Django, describe your experience with ORM models, views, and template handling."
+      },
+      {
+        id: "flask",
+        name: "Flask",
+        category: "Frameworks & Libraries",
+        patterns: [/\bflask\b/i],
+        suggestion: "If you have used Flask, mention lightweight API routing and request/response pipelines."
+      },
+      {
+        id: "dotnet",
+        name: ".NET",
+        category: "Frameworks & Libraries",
+        patterns: [/(?:^|[\s,;:.!?()[\]{}|/])\.NET(?=[\s,;:.!?()[\]{}|/]|$)/i, /\basp\.net\b/i, /\bdot\s*net\b/i],
+        suggestion: "If you have .NET experience, describe ASP.NET Core web APIs or C# backend services."
+      },
+      {
+        id: "mysql",
+        name: "MySQL",
+        category: "Databases",
+        patterns: [/\bmysql\b/i],
+        suggestion: "If you utilized MySQL, describe schema normalization, indexing, and transactional operations."
+      },
+      {
+        id: "postgresql",
+        name: "PostgreSQL",
+        category: "Databases",
+        patterns: [/\bpostgre\s*sql\b/i, /\bpostgres\b/i],
+        suggestion: "If you used PostgreSQL, describe relational tables, queries, or database setup in your projects."
+      },
+      {
+        id: "mongodb",
+        name: "MongoDB",
+        category: "Databases",
+        patterns: [/\bmongodb\b/i, /\bmongo\b/i],
+        suggestion: "If you used MongoDB, mention JSON-like document collections, CRUD queries, or Mongoose models."
+      },
+      {
+        id: "git",
+        name: "Git",
+        category: "Tools & Version Control",
+        patterns: [/\bgit\b/i, /\bgithub\b/i, /\bgitlab\b/i],
+        suggestion: "If you use Git, specify version control commands (commit, push, branch, merge) and GitHub repositories."
+      },
+      {
+        id: "docker",
+        name: "Docker",
+        category: "DevOps & Tools",
+        patterns: [/\bdocker\b/i, /\bcontainerization\b/i],
+        suggestion: "If you have Docker exposure, note Dockerfile creation, container images, or containerized services."
+      },
+      {
+        id: "linux",
+        name: "Linux",
+        category: "Operating Systems",
+        patterns: [/\blinux\b/i, /\bunix\b/i],
+        suggestion: "If you have Linux experience, mention terminal commands, bash scripting, or permissions."
+      },
+      {
+        id: "rest_api",
+        name: "REST APIs",
+        category: "Architecture & Protocols",
+        patterns: [/\brest(?:ful)?\s+apis?\b/i, /\brest\s+web\s+services?\b/i, /\brest\b/i],
+        suggestion: "If you built or consumed REST APIs, describe HTTP methods (GET, POST, PUT, DELETE) and JSON data handling."
+      },
+      {
+        id: "testing",
+        name: "Testing",
+        category: "Quality Assurance",
+        patterns: [/\btesting\b/i, /\bunit\s+test(?:ing|s)?\b/i, /\bqa\b/i, /\bjunit\b/i, /\bselenium\b/i, /\btest\s+cases?\b/i],
+        suggestion: "Highlight testing experience by mentioning unit tests (e.g. JUnit), test cases, or defect validation."
+      },
+      {
+        id: "problem_solving",
+        name: "Problem Solving",
+        category: "Workplace Skills",
+        patterns: [/\bproblem\s+solving\b/i, /\bproblem-solving\b/i, /\balgorithmic\s+problem\s+solving\b/i],
+        suggestion: "Demonstrate problem-solving by referencing algorithmic practice (e.g. LeetCode, HackerRank) or hackathons."
+      },
+      {
+        id: "communication",
+        name: "Communication",
+        category: "Workplace Skills",
+        patterns: [/\bcommunication(?:\s+skills)?\b/i, /\bverbal\s+communication\b/i, /\bwritten\s+communication\b/i],
+        suggestion: "Demonstrate communication by referencing technical seminar presentations, documentation, or client reports."
+      },
+      {
+        id: "teamwork",
+        name: "Teamwork",
+        category: "Workplace Skills",
+        patterns: [/\bteamwork\b/i, /\bteam\s+player\b/i, /\bteam\s+collaboration\b/i, /\bcollaboration\b/i, /\bwork(?:ing)?\s+with\s+a\s+(?:project\s+)?team\b/i],
+        suggestion: "Highlight teamwork by describing collaborative college projects, hackathon teams, or technical committees."
+      },
+      {
+        id: "data_structures",
+        name: "Data Structures",
+        category: "Computer Science",
+        patterns: [/\bdata\s+structures?\b/i, /\bdsa\b/i],
+        suggestion: "Mention core data structures (arrays, linked lists, stacks, trees) and algorithmic problem-solving."
+      }
+    ];
+
+    // STOPWORDS & BOILERPLATE LIST
+    // Used to filter out HR boilerplate and non-technical terms when extracting fallback keywords
+    const STOPWORDS = new Set([
+      'about', 'above', 'after', 'again', 'against', 'all', 'and', 'any', 'are', 'aren',
+      'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'can',
+      'cannot', 'could', 'did', 'does', 'doing', 'down', 'during', 'each', 'few', 'for',
+      'from', 'further', 'had', 'has', 'have', 'having', 'her', 'here', 'hers', 'herself',
+      'him', 'himself', 'his', 'how', 'into', 'its', 'itself', 'just', 'more', 'most',
+      'must', 'not', 'off', 'once', 'only', 'other', 'our', 'ours', 'out', 'over', 'own',
+      'same', 'should', 'some', 'such', 'than', 'that', 'the', 'their', 'theirs', 'them',
+      'themselves', 'then', 'there', 'these', 'they', 'this', 'those', 'through', 'too',
+      'under', 'until', 'very', 'was', 'were', 'what', 'when', 'where', 'which', 'while',
+      'who', 'whom', 'why', 'with', 'would', 'you', 'your', 'yours', 'yourself',
+      'will', 'shall', 'may', 'might', 'must', 'write', 'read', 'perform', 'conduct',
+      'maintain', 'identify', 'collaborate', 'key', 'good', 'strong', 'well', 'etc',
+      'hello', 'world', 'welcome', 'thanks', 'thank', 'please', 'regards', 'dear'
+    ]);
+
+    const BOILERPLATE_TERMS = new Set([
+      'company', 'apply', 'candidate', 'candidates', 'opportunity', 'opportunities',
+      'salary', 'role', 'looking', 'responsible', 'responsibilities', 'requirement',
+      'requirements', 'qualification', 'qualifications', 'experience', 'work', 'working',
+      'join', 'team', 'teams', 'skill', 'skills', 'graduate', 'graduates', 'trainee',
+      'trainees', 'campus', 'fictional', 'hiring', 'services', 'job', 'jobs', 'description',
+      'posting', 'postings', 'location', 'pune', 'bengaluru', 'bangalore', 'mumbai', 'hyderabad',
+      'delhi', 'chennai', 'noida', 'india', 'degree', 'bachelor', 'bachelors', 'bca',
+      'bsc', 'btech', 'mca', 'msc', 'computer', 'science', 'engineering', 'full-time',
+      'part-time', 'package', 'freshers', 'fresher', 'support', 'document', 'fixes',
+      'fixing', 'project', 'projects', 'development', 'developer', 'developers',
+      'engineer', 'engineers', 'student', 'students', 'applicant', 'applicants',
+      'portal', 'criteria', 'aggregate', 'marks', 'percentage', 'cgpa', 'year', 'years',
+      'annual', 'batch', 'seeking', 'across', 'enterprise', 'client', 'engagements',
+      'closely', 'senior', 'setting', 'agile', 'defects', 'quality', 'modules', 'clean',
+      'code', 'overview', 'summary', 'introduction', 'position', 'positions', 'enthusiastic',
+      'eligibility', 'software', 'application', 'applications', 'placement', 'placements',
+      'knowledge', 'understanding', 'familiarity', 'hands-on', 'preferred', 'plus',
+      'responsibilities', 'required', 'backend', 'frontend'
+    ]);
+
+    // DEMO DATA (Fictional Indian Campus Placement Scenario)
+    const DEMO_RESUME = `Asha Rao
+Email: asha.rao.student@example.edu | Bengaluru, India
+Final-year Bachelor of Computer Applications (BCA) student (Fictional placement profile)
+
+PROFILE
+Motivated final-year BCA student with a solid foundation in software development and database fundamentals. Experienced in building web-based academic projects using Java, SQL, HTML, CSS, and Git. Strong teamwork skills developed through group projects and college technical events. Eager to begin a career as a Graduate Software Trainee.
+
+EDUCATION
+Bachelor of Computer Applications (BCA) - 2021 to 2024
+Dayananda Sagar College of Arts, Science and Commerce, Bengaluru
+CGPA: 8.4 / 10.0
+
+TECHNICAL SKILLS
+- Programming Languages: Java
+- Web Technologies: HTML, HTML5, CSS, CSS3
+- Databases: SQL, MySQL
+- Version Control: Git, GitHub
+- Soft Skills: Teamwork, Collaboration
+
+ACADEMIC PROJECTS
+1. College Library Management System
+   - Designed and built a desktop-backed web portal for tracking book issuance and returns.
+   - Implemented relational database schemas and queries using SQL and MySQL.
+   - Developed backend application logic in Java and responsive front-end forms using HTML and CSS.
+   - Maintained project versions and team collaboration using Git.
+
+2. Student Attendance Tracker
+   - Developed a mini-project for recording student attendance percentages.
+   - Wrote SQL queries for calculating monthly attendance reports.
+
+CO-CURRICULAR & ACTIVITIES
+- Member of College Tech Club: Collaborated with a 4-member team to organize the annual intra-college hackathon.
+- Participated in college technical paper presentation sessions.`;
+
+    const DEMO_JOB_DESCRIPTION = `Campus Hiring: Graduate Software Trainee - Fictional IT Services Company, Bengaluru/Pune.
+Eligibility: BCA or BSc Computer Science graduates (2024 batch). Fictional placement posting.
+
+About the Role:
+We are seeking enthusiastic Graduate Software Trainees to support application development and testing across enterprise client engagements. As a trainee, you will write clean code, document fixes, and work with a project team in an agile setting.
+
+Key Responsibilities:
+- Support application development across backend and frontend modules.
+- Perform testing, identify defects, document fixes, and maintain code quality.
+- Collaborate closely with senior developers and work with a project team.
+
+Required Skills:
+- Programming Languages: Java
+- Databases: SQL
+- Web Fundamentals: HTML, CSS
+- Version Control: Git
+- Workplace Skills: Problem Solving, Communication, and Testing.`;
+
+    // DOM ELEMENTS
+    const resumeInput = document.getElementById('resumeInput');
+    const jobInput = document.getElementById('jobInput');
+    const resumeCount = document.getElementById('resumeCount');
+    const jobCount = document.getElementById('jobCount');
+    const resumeError = document.getElementById('resumeError');
+    const jobError = document.getElementById('jobError');
+    const resumeErrorText = document.getElementById('resumeErrorText');
+    const jobErrorText = document.getElementById('jobErrorText');
+
+    const pdfFileInput = document.getElementById('pdfFileInput');
+    const pdfDropzone = document.getElementById('pdfDropzone');
+    const pdfDropzoneTitle = document.getElementById('pdfDropzoneTitle');
+    const pdfLoadingStatus = document.getElementById('pdfLoadingStatus');
+    const pdfSuccessStatus = document.getElementById('pdfSuccessStatus');
+    const pdfErrorStatus = document.getElementById('pdfErrorStatus');
+    const pdfErrorText = document.getElementById('pdfErrorText');
+    const pdfSuccessText = document.getElementById('pdfSuccessText');
+
+    const btnAnalyze = document.getElementById('btnAnalyze');
+    const btnLoadDemo = document.getElementById('btnLoadDemo');
+    const btnClearAll = document.getElementById('btnClearAll');
+    const outdatedBanner = document.getElementById('outdatedBanner');
+
+    const emptyResultsState = document.getElementById('emptyResultsState');
+    const activeResultsSection = document.getElementById('activeResultsSection');
+
+    const scoreGaugeCircle = document.getElementById('scoreGaugeCircle');
+    const scoreGaugeProgressbar = document.getElementById('scoreGaugeProgressbar');
+    const gaugeScoreNumber = document.getElementById('gaugeScoreNumber');
+    const matchSummaryCount = document.getElementById('matchSummaryCount');
+    const formulaExpression = document.getElementById('formulaExpression');
+    const formulaNote = document.getElementById('formulaNote');
+
+    const matchedChipsContainer = document.getElementById('matchedChipsContainer');
+    const missingChipsContainer = document.getElementById('missingChipsContainer');
+    const recommendationsList = document.getElementById('recommendationsList');
+    const transparencyTableBody = document.getElementById('transparencyTableBody');
+    const liveAnnouncement = document.getElementById('liveAnnouncement');
+
+    // STATE VARIABLES
+    let lastAnalyzedState = null;
+    let isPdfLoading = false;
+
+    // 2. HELPER FUNCTIONS FOR TEXT NORMALIZATION & TOKEN COUNTS
+    function updateCounts() {
+      const resumeVal = resumeInput.value;
+      const jobVal = jobInput.value;
+
+      const resumeWords = resumeVal.trim() ? resumeVal.trim().split(/\s+/).length : 0;
+      const jobWords = jobVal.trim() ? jobVal.trim().split(/\s+/).length : 0;
+
+      resumeCount.textContent = `${resumeWords} words · ${resumeVal.length} characters`;
+      jobCount.textContent = `${jobWords} words · ${jobVal.length} characters`;
+
+      // Check if current text differs from last analyzed text
+      if (lastAnalyzedState !== null) {
+        if (resumeVal !== lastAnalyzedState.resume || jobVal !== lastAnalyzedState.job) {
+          outdatedBanner.classList.add('visible');
+        } else {
+          outdatedBanner.classList.remove('visible');
+        }
+      }
+    }
+
+    function announceLive(message) {
+      if (liveAnnouncement) {
+        liveAnnouncement.textContent = message;
+      }
+    }
+
+    // 3. MATCHING ENGINE (Boundary-aware, deterministic)
+    
+    /**
+     * Extracts canonical skills present in the given text.
+     * Boundary-aware: e.g. "Java" does not match "JavaScript".
+     */
+    function extractCanonicalSkills(text) {
+      const matched = [];
+      for (const skill of CANONICAL_SKILLS) {
+        const hasMatch = skill.patterns.some(pattern => pattern.test(text));
+        if (hasMatch) {
+          matched.push(skill);
+        }
+      }
+      return matched;
+    }
+
+    /**
+     * Extracts remaining non-boilerplate keywords from the job description.
+     * Weights them at 1 point as fallback keywords.
+     */
+    function extractFallbackJobKeywords(jobText, matchedSkills) {
+      // Collect IDs and names of already matched canonical skills to avoid duplicates
+      const coveredSkillWords = new Set();
+      for (const skill of matchedSkills) {
+        coveredSkillWords.add(skill.id.toLowerCase());
+        skill.name.toLowerCase().split(/\s+/).forEach(w => coveredSkillWords.add(w));
+      }
+
+      // Tokenize text into words
+      const rawWords = jobText.toLowerCase().match(/[a-z0-9#+.-]{3,}/g) || [];
+      const frequencyMap = new Map();
+
+      for (const word of rawWords) {
+        const cleaned = word.replace(/^[.,;!?()]+|[.,;!?()]+$/g, '');
+        if (cleaned.length < 3) continue;
+        if (STOPWORDS.has(cleaned)) continue;
+        if (BOILERPLATE_TERMS.has(cleaned)) continue;
+        if (coveredSkillWords.has(cleaned)) continue;
+
+        // Skip numeric-only tokens
+        if (/^\d+$/.test(cleaned)) continue;
+
+        frequencyMap.set(cleaned, (frequencyMap.get(cleaned) || 0) + 1);
+      }
+
+      // Sort by frequency and select up to 4 significant domain fallback keywords
+      const sorted = Array.from(frequencyMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([word]) => {
+          // Capitalize first letter
+          const capitalized = word.charAt(0).toUpperCase() + word.slice(1);
+          return {
+            id: `fallback_${word}`,
+            name: capitalized,
+            category: "Job Posting Keyword",
+            isFallback: true,
+            weight: 1,
+            pattern: new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
+            suggestion: `If you have experience or coursework related to ${capitalized}, consider highlighting it in your profile.`
+          };
+        });
+
+      return sorted;
+    }
+
+    /**
+     * Core Analysis Function:
+     * Compares Resume text against Job Description text deterministically.
+     */
+    function analyzeMatch(resumeText, jobText) {
+      // Extract skills from JD
+      const jdSkills = extractCanonicalSkills(jobText);
+      const jdFallback = extractFallbackJobKeywords(jobText, jdSkills);
+
+      // Extract skills from Resume
+      const resumeSkills = extractCanonicalSkills(resumeText);
+      const resumeSkillIdSet = new Set(resumeSkills.map(s => s.id));
+
+      // Build target terms list
+      const allTargetTerms = [];
+
+      for (const skill of jdSkills) {
+        const isMatched = resumeSkillIdSet.has(skill.id);
+        allTargetTerms.push({
+          id: skill.id,
+          name: skill.name,
+          category: skill.category,
+          weight: 2, // Canonical dictionary skills receive weight 2
+          isFallback: false,
+          isMatched: isMatched,
+          suggestion: skill.suggestion
+        });
+      }
+
+      for (const fallback of jdFallback) {
+        const isMatched = fallback.pattern.test(resumeText);
+        allTargetTerms.push({
+          id: fallback.id,
+          name: fallback.name,
+          category: fallback.category,
+          weight: 1, // Fallback terms receive weight 1
+          isFallback: true,
+          isMatched: isMatched,
+          suggestion: fallback.suggestion
+        });
+      }
+
+      if (allTargetTerms.length === 0) {
+        return {
+          hasKeywords: false,
+          message: "No recognizable technical or professional keywords were identified in the job description. Please paste a detailed placement posting with required skills."
+        };
+      }
+
+      // Calculate score formula:
+      // score = round(100 * matched keyword weight / total job keyword weight)
+      let totalJobWeight = 0;
+      let matchedWeight = 0;
+
+      for (const term of allTargetTerms) {
+        totalJobWeight += term.weight;
+        if (term.isMatched) {
+          matchedWeight += term.weight;
+        }
+      }
+
+      const score = Math.round((100 * matchedWeight) / totalJobWeight);
+
+      const matchedTerms = allTargetTerms.filter(t => t.isMatched);
+      const missingTerms = allTargetTerms.filter(t => !t.isMatched);
+
+      return {
+        hasKeywords: true,
+        score: score,
+        matchedWeight: matchedWeight,
+        totalJobWeight: totalJobWeight,
+        allTargetTerms: allTargetTerms,
+        matchedTerms: matchedTerms,
+        missingTerms: missingTerms
+      };
+    }
+
+    // 4. RENDERING FUNCTIONS (Safe DOM manipulation via textContent)
+
+    function renderScoreGauge(score) {
+      // Circumference = 2 * PI * 48 = ~301.59
+      const circumference = 301.59;
+      const targetOffset = circumference - (score / 100) * circumference;
+
+      scoreGaugeCircle.style.strokeDashoffset = targetOffset;
+      scoreGaugeProgressbar.setAttribute('aria-valuenow', score);
+      scoreGaugeProgressbar.setAttribute('aria-label', `Keyword match score: ${score} percent`);
+      gaugeScoreNumber.textContent = `${score}%`;
+    }
+
+    function renderChips(container, terms, isMatched) {
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
+
+      if (terms.length === 0) {
+        const emptyNote = document.createElement('div');
+        emptyNote.className = 'empty-chips-note';
+        emptyNote.textContent = isMatched 
+          ? 'No matching keywords identified between resume and job description.' 
+          : 'None! All identified job keywords are present in your resume.';
+        container.appendChild(emptyNote);
+        return;
+      }
+
+      for (const term of terms) {
+        const chip = document.createElement('div');
+        chip.className = `chip ${isMatched ? 'chip-matched' : 'chip-missing'}`;
+        chip.setAttribute('role', 'listitem');
+
+        const dot = document.createElement('span');
+        dot.className = 'chip-dot';
+        dot.setAttribute('aria-hidden', 'true');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = term.name;
+
+        const weightSpan = document.createElement('span');
+        weightSpan.className = 'chip-weight';
+        weightSpan.textContent = `(${term.weight}pt)`;
+
+        chip.appendChild(dot);
+        chip.appendChild(nameSpan);
+        chip.appendChild(weightSpan);
+        container.appendChild(chip);
+      }
+    }
+
+    function renderRecommendations(missingTerms) {
+      while (recommendationsList.firstChild) {
+        recommendationsList.removeChild(recommendationsList.firstChild);
+      }
+
+      if (missingTerms.length === 0) {
+        const emptyItem = document.createElement('div');
+        emptyItem.className = 'recommendation-item';
+        emptyItem.innerHTML = `
+          <svg class="rec-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <div class="rec-content">
+            <div class="rec-title">Full keyword coverage achieved!</div>
+            <div class="rec-text">Your resume includes all key terms identified in this job posting. Ensure your project descriptions clearly articulate how you applied these skills.</div>
+          </div>
+        `;
+        recommendationsList.appendChild(emptyItem);
+        return;
+      }
+
+      for (const term of missingTerms) {
+        const item = document.createElement('div');
+        item.className = 'recommendation-item';
+        item.setAttribute('role', 'listitem');
+
+        const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        iconSvg.setAttribute('class', 'rec-icon');
+        iconSvg.setAttribute('viewBox', '0 0 20 20');
+        iconSvg.setAttribute('fill', 'currentColor');
+        iconSvg.setAttribute('aria-hidden', 'true');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('fill-rule', 'evenodd');
+        path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z');
+        path.setAttribute('clip-rule', 'evenodd');
+        iconSvg.appendChild(path);
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'rec-content';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'rec-title';
+        titleDiv.textContent = `Address missing skill: ${term.name} (${term.category})`;
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'rec-text';
+        textDiv.textContent = term.suggestion;
+
+        contentDiv.appendChild(titleDiv);
+        contentDiv.appendChild(textDiv);
+
+        item.appendChild(iconSvg);
+        item.appendChild(contentDiv);
+
+        recommendationsList.appendChild(item);
+      }
+    }
+
+    function renderTransparencyTable(allTerms) {
+      while (transparencyTableBody.firstChild) {
+        transparencyTableBody.removeChild(transparencyTableBody.firstChild);
+      }
+
+      for (const term of allTerms) {
+        const tr = document.createElement('tr');
+
+        // Column 1: Keyword
+        const tdName = document.createElement('td');
+        const strong = document.createElement('strong');
+        strong.textContent = term.name;
+        tdName.appendChild(strong);
+
+        // Column 2: Category
+        const tdCat = document.createElement('td');
+        tdCat.textContent = term.category;
+
+        // Column 3: Weight
+        const tdWeight = document.createElement('td');
+        tdWeight.textContent = `${term.weight} point${term.weight > 1 ? 's' : ''}`;
+
+        // Column 4: Status
+        const tdStatus = document.createElement('td');
+        const statusPill = document.createElement('span');
+        statusPill.className = `table-status-pill ${term.isMatched ? 'matched' : 'missing'}`;
+        statusPill.textContent = term.isMatched ? 'Matched' : 'Missing';
+        tdStatus.appendChild(statusPill);
+
+        // Column 5: Evaluation
+        const tdEval = document.createElement('td');
+        tdEval.textContent = term.isMatched 
+          ? `Detected in resume text (${term.weight} pts contributed)`
+          : `Not found in resume text (0 of ${term.weight} pts contributed)`;
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdCat);
+        tr.appendChild(tdWeight);
+        tr.appendChild(tdStatus);
+        tr.appendChild(tdEval);
+
+        transparencyTableBody.appendChild(tr);
+      }
+    }
+
+    function handleRunAnalysis() {
+      // Clear previous validation errors
+      resumeError.classList.remove('visible');
+      jobError.classList.remove('visible');
+
+      const resumeText = resumeInput.value.trim();
+      const jobText = jobInput.value.trim();
+
+      let hasError = false;
+
+      if (!resumeText) {
+        resumeErrorText.textContent = "Please enter your resume text or upload a PDF above.";
+        resumeError.classList.add('visible');
+        hasError = true;
+      }
+
+      if (!jobText) {
+        jobErrorText.textContent = "Please enter the job description text above.";
+        jobError.classList.add('visible');
+        hasError = true;
+      }
+
+      if (hasError) {
+        announceLive("Validation error: please fill in both resume and job description fields.");
+        return;
+      }
+
+      const result = analyzeMatch(resumeText, jobText);
+
+      if (!result.hasKeywords) {
+        jobErrorText.textContent = result.message;
+        jobError.classList.add('visible');
+        announceLive(result.message);
+        return;
+      }
+
+      // Hide empty state, reveal results
+      emptyResultsState.style.display = 'none';
+      activeResultsSection.classList.add('visible');
+      outdatedBanner.classList.remove('visible');
+
+      // Update state tracker
+      lastAnalyzedState = {
+        resume: resumeInput.value,
+        job: jobInput.value
+      };
+
+      // Render components
+      renderScoreGauge(result.score);
+      matchSummaryCount.textContent = `${result.matchedTerms.length} of ${result.allTargetTerms.length} target keywords matched`;
+      
+      formulaExpression.textContent = `Score = round(100 × ${result.matchedWeight} / ${result.totalJobWeight}) = ${result.score}%`;
+      formulaNote.textContent = `Formula: round(100 * matched keyword weight / total job keyword weight). ${result.matchedWeight} matched points out of ${result.totalJobWeight} total target points.`;
+
+      renderChips(matchedChipsContainer, result.matchedTerms, true);
+      renderChips(missingChipsContainer, result.missingTerms, false);
+      renderRecommendations(result.missingTerms);
+      renderTransparencyTable(result.allTargetTerms);
+
+      announceLive(`Analysis complete. Keyword match score is ${result.score} percent. ${result.matchedTerms.length} of ${result.allTargetTerms.length} keywords matched.`);
+
+      // Smoothly scroll results into view if needed
+      activeResultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // 5. DEMO DATA LOADER
+    function handleLoadDemoData() {
+      resumeInput.value = DEMO_RESUME;
+      jobInput.value = DEMO_JOB_DESCRIPTION;
+      
+      // Clear errors & statuses
+      resumeError.classList.remove('visible');
+      jobError.classList.remove('visible');
+      hidePdfStatuses();
+
+      updateCounts();
+
+      // Clear any previous active results and revert to empty state
+      emptyResultsState.style.display = 'block';
+      activeResultsSection.classList.remove('visible');
+      outdatedBanner.classList.remove('visible');
+      lastAnalyzedState = null;
+
+      announceLive("Demo data loaded for fictional Indian placement scenario. Click Analyze Match to evaluate.");
+    }
+
+    // 6. CLEAR ALL FUNCTION
+    function handleClearAll() {
+      resumeInput.value = '';
+      jobInput.value = '';
+      pdfFileInput.value = '';
+
+      updateCounts();
+      resumeError.classList.remove('visible');
+      jobError.classList.remove('visible');
+      hidePdfStatuses();
+
+      emptyResultsState.style.display = 'block';
+      activeResultsSection.classList.remove('visible');
+      outdatedBanner.classList.remove('visible');
+      lastAnalyzedState = null;
+
+      announceLive("Cleared all inputs, file states, and results.");
+    }
+
+    function hidePdfStatuses() {
+      pdfLoadingStatus.classList.remove('visible');
+      pdfSuccessStatus.classList.remove('visible');
+      pdfErrorStatus.classList.remove('visible');
+    }
+
+    // 7. PDF EXTRACTION (PDF.js lazy loaded via verified CDN)
+    const PDFJS_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    const PDFJS_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function loadPdfJsLibrary() {
+      return new Promise((resolve, reject) => {
+        if (window.pdfjsLib) {
+          resolve(window.pdfjsLib);
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = PDFJS_CDN_URL;
+        script.async = true;
+
+        script.onload = () => {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+            resolve(window.pdfjsLib);
+          } else {
+            reject(new Error("PDF.js library loaded but pdfjsLib object not found."));
+          }
+        };
+
+        script.onerror = () => {
+          reject(new Error("Failed to load PDF.js from CDN."));
+        };
+
+        document.head.appendChild(script);
+      });
+    }
+
+    async function processPdfFile(file) {
+      if (!file) return;
+
+      hidePdfStatuses();
+
+      // Check file size (5 MB limit)
+      const MAX_SIZE = 5 * 1024 * 1024;
+      if (file.size > MAX_SIZE) {
+        pdfErrorText.textContent = "File exceeds 5 MB limit. Paste your resume instead.";
+        pdfErrorStatus.classList.add('visible');
+        announceLive("PDF upload error: File exceeds 5 MB limit.");
+        return;
+      }
+
+      // Check file type
+      if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+        pdfErrorText.textContent = "Please select a valid PDF file (.pdf).";
+        pdfErrorStatus.classList.add('visible');
+        announceLive("PDF upload error: Please select a valid PDF file.");
+        return;
+      }
+
+      // Start loading
+      isPdfLoading = true;
+      pdfLoadingText.textContent = `Extracting text from ${file.name}...`;
+      pdfLoadingStatus.classList.add('visible');
+      announceLive(`Reading and extracting text from ${file.name}`);
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfjs = await loadPdfJsLibrary();
+
+        const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+        const pdfDoc = await loadingTask.promise;
+
+        let extractedText = '';
+        const numPages = pdfDoc.numPages;
+
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdfDoc.getPage(i);
+          const content = await page.getTextContent();
+          const pageStrings = content.items.map(item => item.str).filter(Boolean);
+          extractedText += pageStrings.join(' ') + '\n\n';
+        }
+
+        const trimmed = extractedText.trim();
+        if (trimmed.length < 20) {
+          // Scanned / image-only PDF with negligible extracted characters
+          pdfErrorText.textContent = "Could not extract text. Scanned or image-only PDF. Paste your resume instead.";
+          pdfErrorStatus.classList.add('visible');
+          announceLive("Could not extract text. Paste your resume instead.");
+        } else {
+          resumeInput.value = trimmed;
+          updateCounts();
+          
+          pdfSuccessText.textContent = `Extracted from ${file.name} (${numPages} page${numPages > 1 ? 's' : ''}, ${trimmed.length} characters).`;
+          pdfSuccessStatus.classList.add('visible');
+          announceLive(`Successfully extracted text from ${file.name}.`);
+        }
+      } catch (err) {
+        console.error("PDF extraction error:", err);
+        pdfErrorText.textContent = "Could not extract text. Paste your resume instead.";
+        pdfErrorStatus.classList.add('visible');
+        announceLive("Could not extract text. Paste your resume instead.");
+      } finally {
+        // ALWAYS clear loading state even after failure
+        isPdfLoading = false;
+        pdfLoadingStatus.classList.remove('visible');
+      }
+    }
+
+    // 8. EVENT LISTENERS
+    resumeInput.addEventListener('input', updateCounts);
+    jobInput.addEventListener('input', updateCounts);
+
+    btnAnalyze.addEventListener('click', handleRunAnalysis);
+    btnLoadDemo.addEventListener('click', handleLoadDemoData);
+    btnClearAll.addEventListener('click', handleClearAll);
+
+    // File input change
+    pdfFileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        processPdfFile(file);
+      }
+    });
+
+    // Drag & drop support for PDF dropzone
+    pdfDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      pdfDropzone.classList.add('dragover');
+    });
+
+    pdfDropzone.addEventListener('dragleave', () => {
+      pdfDropzone.classList.remove('dragover');
+    });
+
+    pdfDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      pdfDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processPdfFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    // Keyboard support for custom dropzone label
+    pdfDropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        pdfFileInput.click();
+      }
+    });
+
+    // Initial count update
+    updateCounts();
+  </script>
+</body>
+</html>
